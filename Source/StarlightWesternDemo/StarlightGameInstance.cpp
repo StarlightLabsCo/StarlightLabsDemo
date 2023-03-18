@@ -6,11 +6,29 @@
 #include "WebSocketsModule.h"
 #include "Json.h"
 #include "Misc/Base64.h"
+#include "Blueprint/UserWidget.h"
+#include "Components/TextBlock.h"
+#include "UObject/ConstructorHelpers.h"
 #include <Kismet/GameplayStatics.h>
 
 void UStarlightGameInstance::Init()
 {
 	Super::Init();
+
+	// --- Init Quest Widget ---
+	UClass* QuestWidgetBPLoaded = StaticLoadClass(UStarlightQuestWidget::StaticClass(), nullptr, TEXT("/Game/Starlight/Blueprints/BP_StarlightQuestWidget.BP_StarlightQuestWidget_C"));
+	if (QuestWidgetBPLoaded)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Loaded Quest Widget BP Class"));
+		QuestWidgetBPClass = QuestWidgetBPLoaded;
+	}
+	else
+	{
+		UE_LOG(LogTemp, Error, TEXT("Failed to find QuestWidgetBPClass"));
+	}
+
+	// -- Hide Quest Widget ---
+	HideQuestWidget();
 
 	// --- Audio Capture ---
 	if (!FModuleManager::Get().IsModuleLoaded("AudioCapture"))
@@ -122,9 +140,19 @@ void UStarlightGameInstance::Init()
 
 				}
 				else if (type == "GenerationStreamEnd") {
-	/*				AudioDecoder.SavePCM();
-					AudioDecoder.SaveMP3();*/
 					return;
+				}
+				else if (type == "QuestGeneration") {
+					TSharedPtr<FJsonObject> Payload = MessageJson->GetObjectField("data");
+					FString QuestId = Payload->GetStringField("id");
+					FString QuestTitle = Payload->GetStringField("title");
+					FString QuestObjective = Payload->GetStringField("objective");
+					FString QuestDescription = Payload->GetStringField("description");
+
+					// print to screen debug in purple
+					FString QuestString = "Quest ID: " + QuestId + " Title: " + QuestTitle + " Objective: " + QuestObjective;
+					GEngine->AddOnScreenDebugMessage(-1, 45.0f, FColor::Purple, *QuestString);
+					DisplayQuest(QuestTitle, QuestObjective);
 				}
 				else {
 					UE_LOG(LogTemp, Warning, TEXT("Received unknown websocket event."));
@@ -135,6 +163,37 @@ void UStarlightGameInstance::Init()
 
 	// Connect to Websocket Server
 	WebSocket->Connect();
+}
+
+void UStarlightGameInstance::DisplayQuest(const FString& QuestTitle, const FString& QuestObjective)
+{
+	if (QuestWidgetBPClass)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Displaying Quest Widget"));
+		// Create an instance of the StarlightQuestWidget and add it to the viewport
+		if (!QuestWidget)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Creating Quest Widget"));
+			QuestWidget = CreateWidget<UStarlightQuestWidget>(this, QuestWidgetBPClass);
+			QuestWidget->AddToViewport();
+			
+		}
+
+
+		UE_LOG(LogTemp, Warning, TEXT("Setting Quest Widget Visibility to true"))
+		QuestWidget->SetQuestVisibility(true);
+		QuestWidget->QuestTitle->SetText(FText::FromString(QuestTitle));
+		QuestWidget->QuestObjective->SetText(FText::FromString(QuestObjective));
+	}
+}
+
+void UStarlightGameInstance::HideQuestWidget()
+{
+	if (QuestWidget)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Setting Quest Widget Visibility to false"))
+		QuestWidget->SetQuestVisibility(false);
+	}
 }
 
 void UStarlightGameInstance::Shutdown()

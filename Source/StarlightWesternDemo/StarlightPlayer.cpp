@@ -148,7 +148,7 @@ void AStarlightPlayer::StartConversation() {
 	UKismetSystemLibrary::SphereOverlapActors(this, GetActorLocation(), 300.0f, TArray<TEnumAsByte<EObjectTypeQuery>>(), AStarlightCharacter::StaticClass(), TArray<AActor*>(), OverlappingActors);
 	
 	// Drag debug sphere to see the range
-	DrawDebugSphere(GetWorld(), GetActorLocation(), 300.0f, 12, FColor::Red, false, 5.0f, 0, 3.0f);
+	//DrawDebugSphere(GetWorld(), GetActorLocation(), 300.0f, 12, FColor::Red, false, 5.0f, 0, 3.0f);
 
 	if (OverlappingActors.Num() == 0) {
 		UE_LOG(LogTemp, Warning, TEXT("No overlapping actors found"))
