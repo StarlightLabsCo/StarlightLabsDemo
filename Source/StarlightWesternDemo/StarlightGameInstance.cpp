@@ -15,18 +15,6 @@ void UStarlightGameInstance::Init()
 {
 	Super::Init();
 
-	// --- Init Quest Widget ---
-	UClass* QuestWidgetBPLoaded = StaticLoadClass(UStarlightQuestWidget::StaticClass(), nullptr, TEXT("/Game/Starlight/Blueprints/BP_StarlightQuestWidget.BP_StarlightQuestWidget_C"));
-	if (QuestWidgetBPLoaded)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Loaded Quest Widget BP Class"));
-		QuestWidgetBPClass = QuestWidgetBPLoaded;
-	}
-	else
-	{
-		UE_LOG(LogTemp, Error, TEXT("Failed to find QuestWidgetBPClass"));
-	}
-
 	// -- Hide Quest Widget ---
 	HideQuestWidget();
 
@@ -36,7 +24,12 @@ void UStarlightGameInstance::Init()
 		FModuleManager::Get().LoadModule("AudioCapture");
 	}
 
-	// --- Websockets ---
+	// --- WebSockets ---
+	ConnectToWebSocketServer(0);
+}
+
+void UStarlightGameInstance::ConnectToWebSocketServer(int32 RetryCount = 0)
+{
 	if (!FModuleManager::Get().IsModuleLoaded("WebSockets"))
 	{
 		FModuleManager::Get().LoadModule("WebSockets");
@@ -51,19 +44,44 @@ void UStarlightGameInstance::Init()
 			GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Green, "Connected to ws://localhost:8080 websocket server");
 		});
 
-	WebSocket->OnConnectionError().AddLambda([](const FString& Error)
+	WebSocket->OnConnectionError().AddLambda([RetryCount, this](const FString& Error)
 		{
 			UE_LOG(LogTemp, Warning, TEXT("Error connecting to WebSocket Server: %s"), *Error);
 			GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Red, Error);
+
+			if (RetryCount < RetryLimit)
+			{
+				FTimerHandle RetryTimerHandle;
+				FTimerDelegate RetryDelegate = FTimerDelegate::CreateLambda([RetryCount, this]()
+					{
+						ConnectToWebSocketServer(RetryCount + 1);
+					});
+
+				GetWorld()->GetTimerManager().SetTimer(RetryTimerHandle, RetryDelegate, RetryDelay, false);
+			}
 		});
 
-	WebSocket->OnClosed().AddLambda([](int32 StatusCode, const FString& Reason, bool bWasClean)
+	WebSocket->OnClosed().AddLambda([RetryCount, this](int32 StatusCode, const FString& Reason, bool bWasClean)
 		{
 			UE_LOG(LogTemp, Warning, TEXT("WebSocket Server closed connection: %d %s %d"), StatusCode, *Reason, bWasClean);
 			GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Red, "WebSocket Server closed connection");
+
+			if (RetryCount < RetryLimit)
+			{
+				FTimerHandle RetryTimerHandle;
+				FTimerDelegate RetryDelegate = FTimerDelegate::CreateLambda([RetryCount, this]()
+					{
+						ConnectToWebSocketServer(RetryCount + 1);
+					});
+
+				UWorld* World = GetWorld();
+				if (World)
+				{
+					World->GetTimerManager().SetTimer(RetryTimerHandle, RetryDelegate, RetryDelay, false);
+				}
+			}
 		});
 
-	// Message Received
 	WebSocket->OnMessage().AddLambda([&](const FString& Message)
 		{
 			TSharedPtr<FJsonObject> MessageJson;
@@ -76,92 +94,149 @@ void UStarlightGameInstance::Init()
 			}
 			else {
 				FString type = MessageJson->GetStringField("type");
-				UE_LOG(LogTemp, Warning, TEXT("Received message of type: %s"), *type)
 
-				if (type == "Transcription") {
-					FString Transcription = MessageJson->GetStringField("data");
-					GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Green, *Transcription);
-				}
-				else if (type == "GenerationStreamStart") {
-					// Process Message
-					TSharedPtr<FJsonObject> Payload = MessageJson->GetObjectField("data");
-					FString CharacterId = Payload->GetStringField("id");
-
-					// Create AudioDecoder or empty existing one
-					StarlightAudioDecoder& AudioDecoder = AudioDecoderMap.FindOrAdd(CharacterId);
-					AudioDecoder.Empty();
-				}
-				else if (type == "GenerationStreamData") {
-					// Process Message
-					TSharedPtr<FJsonObject> Payload = MessageJson->GetObjectField("data");
-					FString CharacterId = Payload->GetStringField("id");
-					FString Base64AudioData = Payload->GetStringField("mp3Bytes");
-
-					// Decode Base64
-					TArray<uint8> AudioData;	
-					FBase64::Decode(Base64AudioData, AudioData);
-
-					// Append to AudioDecoder
-					StarlightAudioDecoder* AudioDecoder = AudioDecoderMap.Find(CharacterId);
-					if (AudioDecoder == nullptr) {
-						UE_LOG(LogTemp, Warning, TEXT("AudioDecoder with id %s not found"), *CharacterId)
-						return;
+					if (type == "DebugInfo") {
+						TSharedPtr<FJsonObject> Payload = MessageJson->GetObjectField("data");
+						FString DebugMessage = Payload->GetStringField("message");
+						GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Green, *DebugMessage);
 					}
-					AudioDecoder->Append(AudioData);
+					else if (type == "Transcription") {
+						FString Transcription = MessageJson->GetStringField("data");
+						GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Green, *Transcription);
+					}
+					else if (type == "GenerationStreamStart") {
+						// Process Message
+						TSharedPtr<FJsonObject> Payload = MessageJson->GetObjectField("data");
+						FString CharacterId = Payload->GetStringField("characterId");
+						FString ConversationId = Payload->GetStringField("conversationId");
 
-					// Play sound if enough samples are queued
-					UE_LOG(LogTemp, Warning, TEXT("AudioDecoder.QueuedSamples: %d"), AudioDecoder->QueuedSamples)
-					if (AudioDecoder->QueuedSamples >= 5000) {				
+						// Get the NPC pointer
 						AStarlightCharacter** Character = CharacterMap.Find(CharacterId);
 						if (Character == nullptr) {
 							UE_LOG(LogTemp, Warning, TEXT("Character with id %s not found"), *CharacterId)
-							return;
+								return;
 						}
 
 						AStarlightNPC* NPC = Cast<AStarlightNPC>(*Character);
-						if (NPC != nullptr && !NPC->bIsSpeaking)
-						{
-							if (AudioDecoder->SoundWave == nullptr) {
+						NPC->AudioDecoder->Reset();
+
+						// Find the conversation this character is in
+						UStarlightConversation** ConversationPointer = ConversationMap.Find(ConversationId);
+						if (ConversationPointer == nullptr) {
+							UE_LOG(LogTemp, Warning, TEXT("Conversation with id %s not found: : GenerationStreamStart"), *ConversationId)
+								return;
+						}
+
+						UStarlightConversation* Conversation = Cast<UStarlightConversation>(*ConversationPointer);
+						if (Conversation == nullptr) {
+							UE_LOG(LogTemp, Warning, TEXT("Conversation is not a UStarlightConversation"))
+								return;
+						}
+
+						// Add NPC to conversation speaker queue
+						Conversation->NPCSpeakerQueue.Enqueue(NPC);
+					}
+					else if (type == "GenerationStreamData") {
+						// Process Message
+						TSharedPtr<FJsonObject> Payload = MessageJson->GetObjectField("data");
+						FString CharacterId = Payload->GetStringField("characterId");
+						FString ConversationId = Payload->GetStringField("conversationId");
+						FString Base64AudioData = Payload->GetStringField("mp3Bytes");
+
+						// Decode Base64
+						TArray<uint8> AudioData;
+						FBase64::Decode(Base64AudioData, AudioData);
+
+						// Get the NPC pointer
+						AStarlightCharacter** Character = CharacterMap.Find(CharacterId);
+						if (Character == nullptr) {
+							UE_LOG(LogTemp, Warning, TEXT("Character with id %s not found"), *CharacterId)
+								return;
+						}
+
+						AStarlightNPC* NPC = Cast<AStarlightNPC>(*Character);
+
+						// Add audio data to NPC's audio decoder
+						UE_LOG(LogTemp, Warning, TEXT("Adding audio to %s's audio decoder. [%d]"), *NPC->GetName(), NPC->AudioDecoder->QueuedSamples);
+						NPC->AppendAudio(AudioData);
+
+						// Find the conversation this character is in
+						UStarlightConversation** ConversationPointer = ConversationMap.Find(ConversationId);
+						if (ConversationPointer == nullptr) {
+							UE_LOG(LogTemp, Warning, TEXT("Conversation with id %s not found: GenerationStreamData"), *ConversationId)
+								return;
+						}
+
+						UStarlightConversation* Conversation = Cast<UStarlightConversation>(*ConversationPointer);
+						if (Conversation == nullptr) {
+							UE_LOG(LogTemp, Warning, TEXT("Conversation is not a UStarlightConversation"))
+								return;
+						}
+
+						// If the top of the queue is the current NPC, play the sound when applicable
+
+						AStarlightNPC* TopOfQueue;
+						Conversation->NPCSpeakerQueue.Peek(TopOfQueue);
+
+						if (Conversation != nullptr && TopOfQueue == NPC && NPC->AudioDecoder->QueuedSamples >= 5000 && !NPC->bIsSpeaking) {
+							// -- Error handling --
+							if (NPC->AudioDecoder->SoundWave == nullptr) {
 								UE_LOG(LogTemp, Warning, TEXT("AudioDecoder.SoundWave is null"))
 									return;
 							}
 
-							if (AudioDecoder->SoundWave->IsPlayable() == false) {
+							if (NPC->AudioDecoder->SoundWave->IsPlayable() == false) {
 								UE_LOG(LogTemp, Warning, TEXT("AudioDecoder.SoundWave is not playable"))
 									return;
 							}
 
-							UE_LOG(LogTemp, Warning, TEXT("Playing sound"));
-							NPC->Speak(AudioDecoder->SoundWave);
+							// -- Play the sound --
+							NPC->Speak();
+						}
+					}
+					else if (type == "GenerationStreamEnd") {
+						// Process Message
+						TSharedPtr<FJsonObject> Payload = MessageJson->GetObjectField("data");
+						FString CharacterId = Payload->GetStringField("characterId");
+						FString ConversationId = Payload->GetStringField("conversationId");
+
+						// Get the NPC pointer
+						AStarlightCharacter** Character = CharacterMap.Find(CharacterId);
+						if (Character == nullptr) {
+							UE_LOG(LogTemp, Warning, TEXT("Character with id %s not found"), *CharacterId)
+								return;
 						}
 
+						AStarlightNPC* NPC = Cast<AStarlightNPC>(*Character);
+
+						// Set AudioDecoder's bIsFinishStreaming to true
+						if (NPC->AudioDecoder == nullptr) {
+							UE_LOG(LogTemp, Warning, TEXT("AudioDecoder is null when trying to set bIsFinishedStreaming"))
+								return;
+						}
+
+						UE_LOG(LogTemp, Warning, TEXT("[%s] Setting bIsFinishedStreaming to true"), *NPC->AudioDecoder->SoundWave->GetName());
+						NPC->AudioDecoder->SoundWave->bIsFinishedStreaming = true;
+
+						return;
 					}
-					
+					else if (type == "QuestGeneration") {
+						TSharedPtr<FJsonObject> Payload = MessageJson->GetObjectField("data");
+						FString QuestId = Payload->GetStringField("id");
+						FString QuestTitle = Payload->GetStringField("title");
+						FString QuestObjective = Payload->GetStringField("objective");
+						FString QuestDescription = Payload->GetStringField("description");
 
-				}
-				else if (type == "GenerationStreamEnd") {
-					return;
-				}
-				else if (type == "QuestGeneration") {
-					TSharedPtr<FJsonObject> Payload = MessageJson->GetObjectField("data");
-					FString QuestId = Payload->GetStringField("id");
-					FString QuestTitle = Payload->GetStringField("title");
-					FString QuestObjective = Payload->GetStringField("objective");
-					FString QuestDescription = Payload->GetStringField("description");
-
-					// print to screen debug in purple
-					FString QuestString = "Quest ID: " + QuestId + " Title: " + QuestTitle + " Objective: " + QuestObjective;
-					GEngine->AddOnScreenDebugMessage(-1, 45.0f, FColor::Purple, *QuestString);
-					DisplayQuest(QuestTitle, QuestObjective);
-				}
-				else {
-					UE_LOG(LogTemp, Warning, TEXT("Received unknown websocket event."));
-				}
+						// Display Quest Widget
+						DisplayQuest(QuestTitle, QuestObjective);
+					}
+					else {
+						UE_LOG(LogTemp, Warning, TEXT("Received unknown websocket event."));
+					}
 
 			}
 		});
 
-	// Connect to Websocket Server
 	WebSocket->Connect();
 }
 

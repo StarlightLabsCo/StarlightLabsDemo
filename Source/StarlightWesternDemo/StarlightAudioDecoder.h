@@ -3,29 +3,33 @@
 
 #include "CoreMinimal.h"
 #include "minimp3.h"
-#include <Sound/SoundWaveProcedural.h>
+#include "UObject/NoExportTypes.h"
+#include "StarlightSoundWaveProcedural.h"
+#include "StarlightAudioDecoder.generated.h"
 
-/**
- * 
- */
-class STARLIGHTWESTERNDEMO_API StarlightAudioDecoder
+UCLASS()
+class STARLIGHTWESTERNDEMO_API UStarlightAudioDecoder : public UObject
 {
+	GENERATED_BODY()
+
 public:
-	StarlightAudioDecoder();
-	~StarlightAudioDecoder();
+	UStarlightAudioDecoder();
+	void Init();
+
+	~UStarlightAudioDecoder();
 
 	void Append(TArray<uint8>& data);
-	void Empty();
+	void Reset();
 
-	USoundWaveProcedural* SoundWave;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Starlight")
+	TObjectPtr<UStarlightSoundWaveProcedural> SoundWave;
 	int QueuedSamples;
-
-	// Debug
-	void SavePCM();
-	void SaveMP3();
 
 	TArray<uint8> PCMSamples;
 	TArray<uint8> MP3Samples;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Starlight")
+	TObjectPtr<UAudioComponent> AudioComponent;
 
 private:
 	TArray<uint8> AudioBytes;

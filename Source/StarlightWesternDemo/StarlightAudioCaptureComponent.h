@@ -39,6 +39,7 @@ public:
 private:
 	std::atomic<bool> bIsRecording = false;
 	std::atomic<bool> bIsRecordingChunk = false;
+
 	TQueue<USoundWave*> AudioCaptureDataQueue;
 
 	bool CheckPeriod(UWorld* World);

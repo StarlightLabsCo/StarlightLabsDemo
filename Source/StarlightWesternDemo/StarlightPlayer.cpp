@@ -155,9 +155,23 @@ void AStarlightPlayer::StartConversation() {
 		return;
 	}
 
+	// Starlight Game Instance
+	UStarlightGameInstance* StarlightGameInstance = Cast<UStarlightGameInstance>(this->GetGameInstance());
+	UE_LOG(LogTemp, Warning, TEXT("Starlight Game Instance: %s"), *StarlightGameInstance->GetName());
+
+	// Create a new conversation
 	UStarlightConversation* Conversation = NewObject<UStarlightConversation>();
+	Conversation->GameInstance = StarlightGameInstance; // Adding game instance so the conversation can access the Audio Decoder Map
+
+	StarlightGameInstance->ConversationMap.Add(Conversation->Id, Conversation); // Add conversation pointer to the conversation map
+
+	// Set player's active conversation
 	ActiveConversation = Conversation;
+
+	// Add player to list of participants
 	ActiveConversation->Participants.Add(this);
+
+	// Add other participants to list of participants and create JSON string
 	FString Participants = "[";
 
 	for (AActor* Actor : OverlappingActors) {
@@ -183,7 +197,7 @@ void AStarlightPlayer::StartConversation() {
 		return;
 	}
 
-	FString Packet = FString::Printf(TEXT("{\"type\":\"ConversationStart\",\"data\":{\"playerId\":\"%s\",\"characters\":%s }}"), *this->Id, *Participants);
+	FString Packet = FString::Printf(TEXT("{\"type\":\"ConversationStart\",\"data\":{\"conversationId\":\"%s\",\"playerId\":\"%s\",\"characters\":%s }}"), *Conversation->Id, *this->Id, *Participants);
 	GameInstance->WebSocket->Send(Packet);
 }
 

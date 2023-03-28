@@ -18,18 +18,22 @@ class STARLIGHTWESTERNDEMO_API AStarlightNPC : public AStarlightCharacter
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Audio, meta = (AllowPrivateAccess = "true"))
 	UAudioComponent* AudioComponent;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Audio, meta = (AllowPrivateAccess = "true"))
+	USoundAttenuation* NPCAttenuation;
+
+	UFUNCTION()
+	void OnAudioFinished();
+
 public:
-	// Sets default values for this character's properties
 	AStarlightNPC();
 
-	void Speak(USoundWave* NewSoundWave);
-	bool bIsSpeaking;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Starlight")
+	class UStarlightAudioDecoder* AudioDecoder;
 
+	void AppendAudio(TArray<uint8>& data);
+	void Speak();
+	bool bIsSpeaking = false;
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
-
-	USoundWave* SoundWave;
-	void OnAudioFinished();
-
 };

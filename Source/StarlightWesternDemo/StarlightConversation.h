@@ -20,4 +20,9 @@ public:
 	FString Id;
 
 	TArray<class AStarlightCharacter*> Participants;
+	TQueue<class AStarlightNPC*> NPCSpeakerQueue;
+	void OnNPCSpeakerFinish();
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Starlight")
+	class UStarlightGameInstance* GameInstance;
 };

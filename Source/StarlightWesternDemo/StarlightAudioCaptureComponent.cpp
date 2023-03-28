@@ -21,9 +21,6 @@ UStarlightAudioCaptureComponent::UStarlightAudioCaptureComponent(const FObjectIn
 void UStarlightAudioCaptureComponent::BeginPlay()
 {
 	Super::BeginPlay();
-
-
-
 }
 
 void UStarlightAudioCaptureComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
@@ -39,16 +36,12 @@ void UStarlightAudioCaptureComponent::TickComponent(float DeltaTime, ELevelTick 
 	if (bIsRecording && !bIsRecordingChunk) {
 		StartRecordingChunk();
 	}
-
 	
 	PeriodocFlush();
 }
 
 void UStarlightAudioCaptureComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
-
-
-
 	Super::EndPlay(EndPlayReason);
 }
 
@@ -60,14 +53,10 @@ void UStarlightAudioCaptureComponent::StartRecording()
 
 	bIsRecording = true;
 
-	// Logging
-	UE_LOG(LogTemp, Warning, TEXT("Start Recording"));
-
 	SendStartStreamPacket();
 
 	// Start recording
 	Start();
-	
 }
 
 void UStarlightAudioCaptureComponent::StopRecording()
@@ -75,9 +64,6 @@ void UStarlightAudioCaptureComponent::StopRecording()
 	if (!bIsRecording) {
 		return;
 	}
-
-	// Logging
-	UE_LOG(LogTemp, Warning, TEXT("Stop Recording"));
 
 	// Stop recording
 	Stop();
@@ -95,8 +81,6 @@ void UStarlightAudioCaptureComponent::StopRecording()
 
 void UStarlightAudioCaptureComponent::StartRecordingChunk()
 {
-	UE_LOG(LogTemp, Warning, TEXT("Start Recording Chunk"));
-
 	if (bIsRecordingChunk) {
 		return;
 	}
@@ -108,8 +92,6 @@ void UStarlightAudioCaptureComponent::StartRecordingChunk()
 
 void UStarlightAudioCaptureComponent::StopRecordingChunk()
 {
-	UE_LOG(LogTemp, Warning, TEXT("Stop Recording Chunk"));
-
 	if (!bIsRecordingChunk) {
 		return;
 	}
@@ -174,18 +156,12 @@ void UStarlightAudioCaptureComponent::SendEndStreamPacket() {
 		return;
 	}
 
-	// Debug: log the player's id
-	UE_LOG(LogTemp, Warning, TEXT("Player id: %s"), *Player->Id);
-
 	/// get active conversation
 	UStarlightConversation* Conversation = Player->ActiveConversation;
 	if (!Conversation) {
 		UE_LOG(LogTemp, Warning, TEXT("Conversation is null"));
 		return;
 	}
-
-	// Debug: log the conversation's id
-	UE_LOG(LogTemp, Warning, TEXT("Conversation id: %s"), *Conversation->Id);
 
 	// get the character that the player is actively talking to
 	auto Participants = Conversation->Participants;
@@ -237,7 +213,6 @@ void UStarlightAudioCaptureComponent::SendAudioToWebsocket(USoundWave* SoundWave
 		UE_LOG(LogTemp, Warning, TEXT("RawPCMDataSize is null"));
 		return;
 	}
-	UE_LOG(LogTemp, Warning, TEXT("RawPCMDataSize: %d"), RawPCMDataSize);
 
 	FString EncodedString = FBase64::Encode((uint8*)RawPCMData, RawPCMDataSize);
 	FString Packet = FString::Printf(TEXT("{\"type\":\"AudioCaptureStreamData\",\"data\":{\"playerId\":\"%s\",\"buffer\":\"%s\"}}"), *Player->Id, *EncodedString);

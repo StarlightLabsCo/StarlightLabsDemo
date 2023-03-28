@@ -4,44 +4,65 @@
 #include "StarlightNPC.h"
 #include "Components/AudioComponent.h"
 #include "Sound/SoundWave.h"
+#include "StarlightAudioDecoder.h"
 #include "StarlightGameInstance.h"
 
 // Sets default values
 AStarlightNPC::AStarlightNPC()
 {
-	// Setup Audio
+	// Attach audio component
 	AudioComponent = CreateDefaultSubobject<UAudioComponent>(TEXT("AudioComponent"));
 	AudioComponent->SetupAttachment(RootComponent);
-	AudioComponent->AttenuationSettings = LoadObject<USoundAttenuation>(nullptr, TEXT("/Game/Starlight/Sound/NPCAttenuation.NPCAttenuation"));
-
-	// Create a delegate to set bIsSpeaking to false when the sound is finished playing
-	AudioComponent->OnAudioFinished.AddDynamic(this, &AStarlightNPC::OnAudioFinished);
 
 	bIsSpeaking = false;
 
 	return;
 }
 
-void AStarlightNPC::Speak(USoundWave* NewSoundWave)
+void AStarlightNPC::BeginPlay() {
+	Super::BeginPlay();
+
+	// Attach Attenuation Settings
+	AudioComponent->AttenuationSettings = NPCAttenuation;
+
+	// Check if the delegate is already bound
+	AudioComponent->OnAudioFinished.AddUniqueDynamic(this, &AStarlightNPC::OnAudioFinished);
+
+	// AudioDecoder
+	AudioDecoder = NewObject<UStarlightAudioDecoder>();
+	AudioDecoder->AudioComponent = AudioComponent;
+	AudioDecoder->Init();
+
+}
+
+void AStarlightNPC::AppendAudio(TArray<uint8>& data) {
+	if (AudioDecoder == nullptr) {
+		UE_LOG(LogTemp, Warning, TEXT("AudioDecoder is null"))
+			return;
+	}
+
+	AudioDecoder->Append(data);
+}
+
+void AStarlightNPC::Speak()
 {
 	bIsSpeaking = true;
-	AudioComponent->SetSound(NewSoundWave);
+	AudioComponent->SetSound(AudioDecoder->SoundWave);
 	AudioComponent->Play();
-
-	UE_LOG(LogTemp, Warning, TEXT("Playing sound %s"), *NewSoundWave->GetName());
-	UE_LOG(LogTemp, Warning, TEXT("NewSoundWave Length: %d"), NewSoundWave->RawPCMDataSize);	
 }
 
 void AStarlightNPC::OnAudioFinished()
 {
+	UE_LOG(LogTemp, Warning, TEXT("OnAudioFinished"));
+
 	bIsSpeaking = false;
-}
 
-
-// Called when the game starts or when spawned
-void AStarlightNPC::BeginPlay()
-{
-	Super::BeginPlay();	
+	if (ActiveConversation != nullptr) {
+		ActiveConversation->OnNPCSpeakerFinish();
+	}
+	else {
+		UE_LOG(LogTemp, Warning, TEXT("CurrentConversation is null"));
+	}
 }
 
 

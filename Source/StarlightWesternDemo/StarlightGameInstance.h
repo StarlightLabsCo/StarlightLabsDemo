@@ -22,17 +22,16 @@ public:
 	virtual void Shutdown() override;
 
 	TSharedPtr<IWebSocket> WebSocket;
-	StarlightAudioDecoder AudioDecoder;
 
 	// Global character map
 	FString PlayerId;
 	TMap<FString, class AStarlightCharacter*> CharacterMap;
-	TMap<FString, StarlightAudioDecoder> AudioDecoderMap;
+	TMap<FString, class UStarlightConversation*> ConversationMap;
 
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Starlight")
 	UStarlightQuestWidget* QuestWidget;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Quest Widget")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Quest Widget")
 	TSubclassOf<UStarlightQuestWidget> QuestWidgetBPClass;
 
 	UFUNCTION()
@@ -40,4 +39,9 @@ public:
 
 	UFUNCTION()
 	void HideQuestWidget();
+
+private:
+	int32 RetryLimit = 5;
+	float RetryDelay = 5.0f; // Retry delay in seconds
+	void ConnectToWebSocketServer(int32 RetryCount);
 };
