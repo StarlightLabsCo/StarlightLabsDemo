@@ -119,6 +119,7 @@ void UStarlightGameInstance::ConnectToWebSocketServer(int32 RetryCount = 0)
 
 						AStarlightNPC* NPC = Cast<AStarlightNPC>(*Character);
 						NPC->AudioDecoder->Reset();
+						//NPC->AudioComponent->bIsFinishedStreaming = false;
 
 						// Find the conversation this character is in
 						UStarlightConversation** ConversationPointer = ConversationMap.Find(ConversationId);
@@ -216,7 +217,7 @@ void UStarlightGameInstance::ConnectToWebSocketServer(int32 RetryCount = 0)
 						}
 
 						UE_LOG(LogTemp, Warning, TEXT("[%s] Setting bIsFinishedStreaming to true"), *NPC->AudioDecoder->SoundWave->GetName());
-						NPC->AudioDecoder->SoundWave->bIsFinishedStreaming = true;
+						// NPC->AudioDecoder->SoundWave->bIsFinishedStreaming = true;
 
 						return;
 					}

@@ -2,7 +2,7 @@
 
 
 #include "StarlightNPC.h"
-#include "Components/AudioComponent.h"
+#include "StarlightAudioComponent.h"
 #include "Sound/SoundWave.h"
 #include "StarlightAudioDecoder.h"
 #include "StarlightGameInstance.h"
@@ -11,7 +11,7 @@
 AStarlightNPC::AStarlightNPC()
 {
 	// Attach audio component
-	AudioComponent = CreateDefaultSubobject<UAudioComponent>(TEXT("AudioComponent"));
+	AudioComponent = CreateDefaultSubobject<UStarlightAudioComponent>(TEXT("StarlightAudioComponent"));
 	AudioComponent->SetupAttachment(RootComponent);
 
 	bIsSpeaking = false;
@@ -30,9 +30,7 @@ void AStarlightNPC::BeginPlay() {
 
 	// AudioDecoder
 	AudioDecoder = NewObject<UStarlightAudioDecoder>();
-	AudioDecoder->AudioComponent = AudioComponent;
-	AudioDecoder->Init();
-
+	AudioDecoder->Init();	
 }
 
 void AStarlightNPC::AppendAudio(TArray<uint8>& data) {

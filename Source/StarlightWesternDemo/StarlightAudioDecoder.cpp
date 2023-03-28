@@ -12,12 +12,11 @@ UStarlightAudioDecoder::UStarlightAudioDecoder() {
 void UStarlightAudioDecoder::Init() {
 	mp3dec_init(&mp3d);
 
-	SoundWave = NewObject<UStarlightSoundWaveProcedural>();
+	SoundWave = NewObject<USoundWaveProcedural>();
 	UE_LOG(LogTemp, Warning, TEXT("Sound Wave Created: %s"), *SoundWave->GetName());
 
 	SoundWave->NumChannels = 1;
 	SoundWave->SetSampleRate(44100);
-	SoundWave->AudioComponent = AudioComponent;
 
 	QueuedSamples = 0;
 
@@ -66,6 +65,5 @@ void UStarlightAudioDecoder::Append(TArray<uint8>& data){
 void UStarlightAudioDecoder::Reset() {
 	AudioBytes.Empty();
 	SoundWave->ResetAudio();
-	SoundWave->bIsFinishedStreaming = false;
 	QueuedSamples = 0;
 }

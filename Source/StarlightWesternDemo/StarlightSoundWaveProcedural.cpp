@@ -8,8 +8,8 @@
 int32 UStarlightSoundWaveProcedural::GeneratePCMData(uint8* PCMData, const int32 SamplesNeeded)
 {
 	UE_LOG(LogTemp, Warning, TEXT("[%s] Need %d PCM Samples"), *this->GetName() , SamplesNeeded);
-	int32 BytesAailable = GetAvailableAudioByteCount();
-	if (bIsFinishedStreaming && BytesAailable <= 0) {
+	int32 BytesAvailable = GetAvailableAudioByteCount();
+	if (bIsFinishedStreaming && BytesAvailable <= 0) {
 		UE_LOG(LogTemp, Warning, TEXT("[%s] No more PCM Samples"), *this->GetName());
 	}
 	

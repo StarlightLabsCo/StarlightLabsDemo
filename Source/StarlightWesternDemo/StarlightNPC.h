@@ -6,7 +6,7 @@
 #include "StarlightCharacter.h"
 #include "StarlightNPC.generated.h"
 
-class UAudioComponent;
+class UStarlightAudioComponent;
 class USoundWave;
 
 UCLASS()
@@ -16,7 +16,7 @@ class STARLIGHTWESTERNDEMO_API AStarlightNPC : public AStarlightCharacter
 
 	/** Audio capture component */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Audio, meta = (AllowPrivateAccess = "true"))
-	UAudioComponent* AudioComponent;
+	UStarlightAudioComponent* AudioComponent;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Audio, meta = (AllowPrivateAccess = "true"))
 	USoundAttenuation* NPCAttenuation;

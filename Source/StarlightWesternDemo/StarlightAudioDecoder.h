@@ -4,7 +4,7 @@
 #include "CoreMinimal.h"
 #include "minimp3.h"
 #include "UObject/NoExportTypes.h"
-#include "StarlightSoundWaveProcedural.h"
+#include "Sound/SoundWaveProcedural.h"
 #include "StarlightAudioDecoder.generated.h"
 
 UCLASS()
@@ -22,14 +22,8 @@ public:
 	void Reset();
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Starlight")
-	TObjectPtr<UStarlightSoundWaveProcedural> SoundWave;
+	TObjectPtr<USoundWaveProcedural> SoundWave;
 	int QueuedSamples;
-
-	TArray<uint8> PCMSamples;
-	TArray<uint8> MP3Samples;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Starlight")
-	TObjectPtr<UAudioComponent> AudioComponent;
 
 private:
 	TArray<uint8> AudioBytes;
